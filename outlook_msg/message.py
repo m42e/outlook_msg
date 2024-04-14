@@ -20,11 +20,16 @@ class Message:
         return self.mfs['PidTagBody']
 
     @property
+    def rtf(self):
+        return self.mfs['PidTagRtfCompressed']
+
+    @property
     def has_attachments(self):
         try:
             return self.mfs['PidTagHasAttachments']
         except KeyError:
-            storage_names = self.mfs.numbered_storage_names(constants.ATTACHMENTS_PREFIX)
+            storage_names = self.mfs.numbered_storage_names(
+                constants.ATTACHMENTS_PREFIX)
             return len(list(storage_names)) > 0
 
     @property

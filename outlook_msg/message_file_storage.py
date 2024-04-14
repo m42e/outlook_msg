@@ -2,6 +2,7 @@ import itertools
 import struct
 
 import compoundfiles
+import datetime
 
 from outlook_msg import constants
 from outlook_msg.property import parse_property
@@ -58,10 +59,12 @@ def decode(data, type_name):
     if type_name == 'PtypeString':
         return data.decode('utf-16')
     elif type_name == 'PtypBinary':
-        return data  # Just binary so we can return it straight up
+        return data
     elif type_name == 'PtypBoolean':
         return bool(data[0])
     elif type_name == 'PtypInteger32':
+        return struct.unpack('Q', bytes(data))[0]
+    elif type_name == 'PtypTime':
         return struct.unpack('Q', bytes(data))[0]
 
     raise KeyError(f"Unknown type {type_name}")
@@ -75,7 +78,8 @@ class MessageFileStorage:
         self.document = root_document
 
         properties_stream = self.read_storage(constants.PROPERTIES_NAME)
-        self._header, self._properties = parse_property_stream(properties_stream, header_format)
+        self._header, self._properties = parse_property_stream(
+            properties_stream, header_format)
 
     def read_storage(self, storage_name):
         with self.document.open(self.storage[storage_name]) as f:
@@ -95,10 +99,19 @@ class MessageFileStorage:
             type_name = p.property_tag.prop_type_name
             if p.name == item:
                 if type_name in ('PtypeString', 'PtypBinary'):
-                    binary_data = self.document.open(self.storage[p.property_tag.substg]).read()
+                    binary_data = self.document.open(
+                        self.storage[p.property_tag.substg]).read()
                     return decode(binary_data, type_name)
                 elif type_name in ('PtypBoolean', 'PtypInteger32'):
                     return decode(p.value, type_name)
+                elif type_name in ('PtypTime'):
+                    base = datetime.datetime(1601, 1, 1)
+                    value = decode(p.value, type_name)
+                    base = base + datetime.timedelta(microseconds=value/10)
+                    return base
+                elif type_name in ('PtypGuid'):
+                    print(p.value)
+                    return '(PtypGuid)'
                 else:
                     raise TypeError(f"Can't decode a {type_name}")
         raise KeyError(item)
